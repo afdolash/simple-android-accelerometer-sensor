@@ -1,6 +1,7 @@
 package com.codesch.afdolash.simpleaccelsensor;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -10,6 +11,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
@@ -25,10 +27,11 @@ import at.markushi.ui.CircleButton;
 public class MainActivity extends AppCompatActivity implements SensorEventListener{
 
     private CircleButton btn_lock;
-    private int RESULT = 0;
+    private int RESULT;
 
     private DevicePolicyManager mDevicePolicyManager;
     private ComponentName mComponentName;
+    private ActivityManager mActivityManager;
 
     private SensorManager mSensorManager;
     private Sensor mSensor;
@@ -37,6 +40,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Membuat notifikasi bar transparan
+        if (Build.VERSION.SDK_INT >= 21) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        }
+
+        changeStatusBarColor();
+
+        // Inisialisasi activity manager
+        mActivityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
 
         // Memanggil component myAdmin
         mComponentName = new ComponentName(this, MyAdmin.class);
@@ -142,6 +155,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // Menghilangkan sensor yang aktif
+        mSensorManager.unregisterListener(this);
+
+        // Menonaktifkan admin policy
+        mDevicePolicyManager.removeActiveAdmin(mComponentName);
+    }
+
+    @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         // Mendapatkan data dari sensor
         int xAxis = (int) sensorEvent.values[0];
@@ -149,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         int zAxis = (int) sensorEvent.values[2];
 
         // Mengatur trigger/pemicu untuk melakukan screen lock pada Android
-        if (xAxis == 0 && yAxis == 0 && zAxis == 9) {
+        if (Math.abs(xAxis) == 0 && Math.abs(yAxis) == 0 && Math.abs(zAxis) == 9) {
             if (mDevicePolicyManager.isAdminActive(mComponentName)) {
                 // Mengunci Android
                 mDevicePolicyManager.lockNow();
@@ -166,5 +190,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
+    }
+
+    private void changeStatusBarColor() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(Color.TRANSPARENT);
+        }
     }
 }
